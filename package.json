@@ -1,0 +1,18 @@
+{
+  "name": "hls-help",
+  "version": "1.0.0",
+  "description": "",
+  "main": "hls-help.js",
+  "dependencies": {
+    "hls-download": "^1.5.0",
+    "m3u8-parsed": "^1.2.0",
+    "request": "^2.88.0",
+    "ttml2srt": "^1.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Seiya Loveless",
+  "license": "MIT"
+}
