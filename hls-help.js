@@ -1,20 +1,24 @@
+#!/usr/bin/env node
+
 // modules
 const request = require('request');
 const m3u8 = require('m3u8-parsed');
 const hlsdl = require('hls-download');
 const shlp = require('sei-helper');
+const querystring = require('querystring');
 
 // req
-let fullUrl  = '';
-let baseUrl  = '';
-let quality  = '';
-let file     = '';
-let parts    = 10;
-let isStreamB = false;
-let isStreamS = '';
+let fullUrl          = '';
+let baseUrl          = '';
+let quality          = '';
+let file             = '';
+let parts            = 10;
+let isStream         = false;
+let setCustomBaseUrl = true;
 
 // cfg
 let m3u8cfg;
+let m3u8cfgUpd;
 let getM3u8Sheet;
 
 // start
@@ -24,36 +28,49 @@ getStream();
 async function getStream(){
     
     fullUrl = await shlp.question(`m3u8 video url`);
-    baseUrl = fullUrl.replace(fullUrl.split('/')[fullUrl.split('/').length-1],'');
-    
     getM3u8Sheet = await getData(fullUrl);
+    
     if(!getM3u8Sheet.err || getM3u8Sheet.err){
         m3u8cfg = m3u8(getM3u8Sheet.res.body);
         if(m3u8cfg.segments && m3u8cfg.segments.length>0){
             await dlStream(m3u8cfg,fullUrl);
         }
         else if(m3u8cfg.playlists){
-            for(let i=0;i<m3u8cfg.playlists.length;i++){
-                let plEl = m3u8cfg.playlists[i];
-                let resolution = plEl.attributes.RESOLUTION ? `${plEl.attributes.RESOLUTION.width}x${plEl.attributes.RESOLUTION.height}` : `????x????`;
+            if(m3u8cfg.mediaGroups && m3u8cfg.mediaGroups.AUDIO){
+                let audioArr  = m3u8cfg.mediaGroups.AUDIO;
+                let audioKeys = Object.keys(audioArr);
+                let audioArrMainKey = audioKeys[0];
+                audioArr  = m3u8cfg.mediaGroups.AUDIO[audioArrMainKey];
+                audioKeys = Object.keys(audioArr);
+                for(let a in audioKeys){
+                    m3u8cfg.playlists.push(audioArr[audioKeys[a]]);
+                }
+            }
+            for(let v in m3u8cfg.playlists){
+                let plEl = m3u8cfg.playlists[v];
+                let plAt = plEl.attributes ? plEl.attributes : {};
+                let resolution = plAt.RESOLUTION ? `${plAt.RESOLUTION.width}x${plAt.RESOLUTION.height}` : `????x????`;
+                let BANDWIDTH  = plAt.BANDWIDTH  ? Math.round(plAt.BANDWIDTH/1024) : `????`;
                 console.log(
-                    `[${i}] ${resolution} (${Math.round(plEl.attributes.BANDWIDTH/1024)}KiB/s)`,
-                    '\n `-'+m3u8cfg.playlists[i].uri
+                    `[${v}] ${resolution} (${BANDWIDTH}KiB/s)`,
+                    '\n `-'+m3u8cfg.playlists[v].uri
                 );
             }
             quality = await shlp.question(`stream number`);
-            plUri = m3u8cfg.playlists[quality].uri;
-            fullUrl = (!plUri.match(/^http/) ? baseUrl : '') + plUri;
-            baseUrl = fullUrl.replace(fullUrl.split('/')[fullUrl.split('/').length-1],'');
-            console.log(fullUrl);
-            getM3u8Sheet = await getData(fullUrl);
-            if(!getM3u8Sheet.err || getM3u8Sheet.err){
-                m3u8cfg = m3u8(getM3u8Sheet.res.body);
-                await dlStream(m3u8cfg,fullUrl);
+            try{
+                plUri = m3u8cfg.playlists[quality].uri;
+                fullUrl = (!plUri.match(/^http/) ? genBaseUrl(fullUrl) : '') + plUri;
+                console.log(fullUrl);
+                getM3u8Sheet = await getData(fullUrl);
+                if(!getM3u8Sheet.err || getM3u8Sheet.err){
+                    m3u8cfg = m3u8(getM3u8Sheet.res.body);
+                    await dlStream(m3u8cfg,fullUrl);
+                }
+                else{
+                    console.log(JSON.stringify(getM3u8Sheet,null,'\t'));
+                }
             }
-            else{
-                console.log(JSON.stringify(getM3u8Sheet,null,'\t'));
-            }
+            catch(e){}
         }
         else{
             console.log(m3u8cfg);
@@ -65,20 +82,59 @@ async function getStream(){
     
 }
 
+function genBaseUrl(fullUrl){
+    return fullUrl.replace(fullUrl.split('/')[fullUrl.split('/').length-1],'');
+}
+
 // dl
 async function dlStream(m3u8cfg,fullUrl){
     process.chdir(`${__dirname}/downloads/`);
     file = file == '' ? await shlp.question(`ts filename`) : file;
-    isStreamS = isStreamB ? 'y' : await shlp.question(`is stream [y/N]`);
-    if (['Y', 'y'].includes(isStreamS[0])) {
-        isStreamB = true;
+    if (!isStream) {
+        isStream = (['Y', 'y'].includes(await shlp.question(`is stream [y/N]`))) ? true : false;
     }
-    let mystream = await hlsdl({ fn: file, baseurl: baseUrl, m3u8json: m3u8cfg, pcount: parts, rcount: 100, typeStream: isStreamB });
+    if(setCustomBaseUrl){
+        setCustomBaseUrl = false;
+        if(['Y', 'y'].includes(await shlp.question(`do you want enter custom base url [y/N]`))){
+            baseUrl  = querystring.parse('url='+(await shlp.question(`base url`)))['url'];
+        }
+        else{
+            baseUrl  = genBaseUrl(fullUrl)
+        }
+    }
+    else{
+        baseUrl  = baseUrl;
+    }
+    let mystream = await hlsdl({ 
+        fn: file,
+        baseurl: baseUrl, 
+        m3u8json: m3u8cfg, 
+        pcount: parts, 
+        rcount: 100, 
+        typeStream: isStream
+    });
     console.log(mystream);
-    if(isStreamB){
-        // m3u8cfg = {};
-        // await dlStream(m3u8cfg,fullUrl); 
+    if(isStream){
+        await updateStream(m3u8cfg,fullUrl);
     }
+}
+async function updateStream(m3u8cfg,fullUrl){
+    while (true) {
+        getM3u8Sheet = await getData(fullUrl);
+        m3u8cfgUpd = m3u8(getM3u8Sheet.res.body);
+        if (m3u8cfgUpd == m3u8cfg) {
+            await delay(2000);
+            continue;
+        }
+        let oldUrls = {};
+        m3u8cfg.segments.forEach(s => oldUrls[s.uri] = 1);
+        m3u8cfg = m3u8cfgUpd;
+        m3u8cfg.segments = m3u8cfg.segments.filter(s => !(s.uri in oldUrls[s.uri]));
+        await dlStream(m3u8cfg,fullUrl);
+    }
+}
+function delay(s) {
+    return new Promise(resolve => setTimeout(resolve, s));
 }
 
 // request
