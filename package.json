@@ -1,10 +1,10 @@
 {
   "name": "hls-help",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "",
   "main": "hls-help.js",
   "dependencies": {
-    "hls-download": "^1.6.1",
+    "hls-download": "^1.6.2",
     "m3u8-parsed": "^1.2.0",
     "request": "^2.88.0",
     "ttml2srt": "^1.0.0"

@@ -28,7 +28,7 @@ getStream();
 async function getStream(){
     
     fullUrl = await shlp.question(`m3u8 video url`);
-    getM3u8Sheet = await getData(fullUrl);
+    getM3u8Sheet = await getData({url:fullUrl});
     
     if(!getM3u8Sheet.err || getM3u8Sheet.err){
         m3u8cfg = m3u8(getM3u8Sheet.res.body);
@@ -39,11 +39,13 @@ async function getStream(){
             if(m3u8cfg.mediaGroups && m3u8cfg.mediaGroups.AUDIO){
                 let audioArr  = m3u8cfg.mediaGroups.AUDIO;
                 let audioKeys = Object.keys(audioArr);
-                let audioArrMainKey = audioKeys[0];
-                audioArr  = m3u8cfg.mediaGroups.AUDIO[audioArrMainKey];
-                audioKeys = Object.keys(audioArr);
-                for(let a in audioKeys){
-                    m3u8cfg.playlists.push(audioArr[audioKeys[a]]);
+                if(audioKeys.length>0){
+                    let audioArrMainKey = audioKeys[0];
+                    audioArr  = m3u8cfg.mediaGroups.AUDIO[audioArrMainKey];
+                    audioKeys = Object.keys(audioArr);
+                    for(let a in audioKeys){
+                        m3u8cfg.playlists.push(audioArr[audioKeys[a]]);
+                    }
                 }
             }
             for(let v in m3u8cfg.playlists){
@@ -61,7 +63,7 @@ async function getStream(){
                 plUri = m3u8cfg.playlists[quality].uri;
                 fullUrl = (!plUri.match(/^http/) ? genBaseUrl(fullUrl) : '') + plUri;
                 console.log(fullUrl);
-                getM3u8Sheet = await getData(fullUrl);
+                getM3u8Sheet = await getData({url:fullUrl});
                 if(!getM3u8Sheet.err || getM3u8Sheet.err){
                     m3u8cfg = m3u8(getM3u8Sheet.res.body);
                     await dlStream(m3u8cfg,fullUrl);
@@ -70,7 +72,9 @@ async function getStream(){
                     console.log(JSON.stringify(getM3u8Sheet,null,'\t'));
                 }
             }
-            catch(e){}
+            catch(e){
+                console.error('%s\n%s', e.message, e.stack);
+            }
         }
         else{
             console.log(m3u8cfg);
@@ -115,21 +119,26 @@ async function dlStream(m3u8cfg,fullUrl){
     });
     console.log(mystream);
     if(isStream){
+        console.log(`fetch update...`);
         await updateStream(m3u8cfg,fullUrl);
     }
 }
 async function updateStream(m3u8cfg,fullUrl){
     while (true) {
-        getM3u8Sheet = await getData(fullUrl);
+        getM3u8Sheet = await getData({url:fullUrl});
         m3u8cfgUpd = m3u8(getM3u8Sheet.res.body);
-        if (m3u8cfgUpd == m3u8cfg) {
+        let lastSegUrl = {
+            dld: m3u8cfg.segments[m3u8cfg.segments.length-1].uri,
+            upd: m3u8cfgUpd.segments[m3u8cfgUpd.segments.length-1].uri
+        };
+        if (lastSegUrl.dld == lastSegUrl.upd) {
             await delay(2000);
             continue;
         }
         let oldUrls = {};
         m3u8cfg.segments.forEach(s => oldUrls[s.uri] = 1);
         m3u8cfg = m3u8cfgUpd;
-        m3u8cfg.segments = m3u8cfg.segments.filter(s => !(s.uri in oldUrls[s.uri]));
+        m3u8cfg.segments = m3u8cfg.segments.filter(s => !(s.uri in oldUrls));
         await dlStream(m3u8cfg,fullUrl);
     }
 }
@@ -139,6 +148,10 @@ function delay(s) {
 
 // request
 function getData(options){
+    if(options && !options.headers){
+        options.headers = {};
+    }
+    options.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:63.0) Gecko/20100101 Firefox/63.0';
     return new Promise((resolve) => {
         request(options, (err, res) => {
             if (err){
