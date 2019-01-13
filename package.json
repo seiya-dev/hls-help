@@ -4,10 +4,10 @@
   "description": "",
   "main": "hls-help.js",
   "dependencies": {
-    "hls-download": "^1.6.2",
+    "hls-download": "^1.7.1",
     "m3u8-parsed": "^1.2.0",
     "request": "^2.88.0",
-    "ttml2srt": "^1.0.0"
+    "ttml2srt": "^1.1.0"
   },
   "devDependencies": {},
   "scripts": {
