@@ -1,18 +1,17 @@
 {
-  "name": "hls-help",
-  "version": "1.1.1",
-  "description": "",
-  "main": "hls-help.js",
-  "dependencies": {
-    "hls-download": "^1.7.1",
-    "m3u8-parsed": "^1.2.0",
-    "request": "^2.88.0",
-    "ttml2srt": "^1.1.0"
-  },
-  "devDependencies": {},
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Seiya Loveless",
-  "license": "MIT"
+    "name": "hls-help",
+    "version": "2.0.0-beta.1",
+    "description": "",
+    "main": "hls-help.js",
+    "dependencies": {
+        "hls-download": "^2.0.0-beta.1",
+        "m3u8-parsed": "^1.2.0",
+        "ttml2srt": "^1.1.0"
+    },
+    "devDependencies": {},
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "Seiya Loveless",
+    "license": "MIT"
 }

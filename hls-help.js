@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // modules
-const request = require('request');
+const got = require('got');
 const m3u8 = require('m3u8-parsed');
 const hlsdl = require('hls-download');
 const shlp = require('sei-helper');
@@ -27,11 +27,11 @@ getStream();
 // program
 async function getStream(){
     
-    fullUrl = await shlp.question(`m3u8 video url`);
+    fullUrl = await shlp.question(`[Q] m3u8 video url`);
     getM3u8Sheet = await getData({url:fullUrl});
     
     if(!getM3u8Sheet.err || getM3u8Sheet.err){
-        m3u8cfg = m3u8(getM3u8Sheet.res.body);
+        m3u8cfg = m3u8(getM3u8Sheet.body);
         if(m3u8cfg.segments && m3u8cfg.segments.length>0){
             await dlStream(m3u8cfg,fullUrl);
         }
@@ -58,14 +58,14 @@ async function getStream(){
                     '\n `-'+m3u8cfg.playlists[v].uri
                 );
             }
-            quality = await shlp.question(`stream number`);
+            quality = await shlp.question(`[Q] stream number`);
             try{
                 plUri = m3u8cfg.playlists[quality].uri;
                 fullUrl = (!plUri.match(/^http/) ? genBaseUrl(fullUrl) : '') + plUri;
                 console.log(fullUrl);
                 getM3u8Sheet = await getData({url:fullUrl});
                 if(!getM3u8Sheet.err || getM3u8Sheet.err){
-                    m3u8cfg = m3u8(getM3u8Sheet.res.body);
+                    m3u8cfg = m3u8(getM3u8Sheet.body);
                     await dlStream(m3u8cfg,fullUrl);
                 }
                 else{
@@ -95,11 +95,11 @@ async function dlStream(m3u8cfg,fullUrl){
     process.chdir(`${__dirname}/downloads/`);
     file = file == '' ? await shlp.question(`ts filename`) : file;
     if (!isStream) {
-        isStream = (['Y', 'y'].includes(await shlp.question(`is stream [y/N]`))) ? true : false;
+        isStream = (['Y', 'y'].includes(await shlp.question(`[Q] is stream [y/N]`))) ? true : false;
     }
     if(setCustomBaseUrl){
         setCustomBaseUrl = false;
-        if(['Y', 'y'].includes(await shlp.question(`do you want enter custom base url [y/N]`))){
+        if(['Y', 'y'].includes(await shlp.question(`[Q] do you want enter custom base url [y/N]`))){
             baseUrl  = querystring.parse('url='+(await shlp.question(`base url`)))['url'];
         }
         else{
@@ -119,7 +119,7 @@ async function dlStream(m3u8cfg,fullUrl){
     });
     console.log(mystream);
     if(isStream){
-        console.log(`fetch update...`);
+        console.log(`[INFO] fetch update...`);
         await updateStream(m3u8cfg,fullUrl);
     }
 }
@@ -147,21 +147,16 @@ function delay(s) {
 }
 
 // request
-function getData(options){
+async function getData(options){
     if(options && !options.headers){
         options.headers = {};
     }
     options.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:63.0) Gecko/20100101 Firefox/63.0';
-    return new Promise((resolve) => {
-        request(options, (err, res) => {
-            if (err){
-                res = err;
-                resolve({ "err": "0", res });
-            }
-            if (res.statusCode != 200) {
-                resolve({ "err": res.statusCode, res });
-            }
-            resolve({res});
-        });
-    });
+    try{
+        let g = await got(options);
+        return g;
+    }
+    catch(res){
+        return { "err": true, res };
+    }
 }
