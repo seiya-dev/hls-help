@@ -1,11 +1,12 @@
 {
     "name": "hls-help",
-    "version": "2.0.0-beta.1",
+    "version": "2.0.0-beta.2",
     "description": "",
     "main": "hls-help.js",
     "dependencies": {
-        "hls-download": "^2.0.0-beta.1",
+        "hls-download": "^2.0.0-beta.5",
         "m3u8-parsed": "^1.2.0",
+        "sei-helper": "^3.1.0",
         "ttml2srt": "^1.1.0"
     },
     "devDependencies": {},

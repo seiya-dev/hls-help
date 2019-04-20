@@ -26,12 +26,12 @@ getStream();
 
 // program
 async function getStream(){
-    
+    // set url
     fullUrl = await shlp.question(`[Q] m3u8 video url`);
     getM3u8Sheet = await getData({url:fullUrl});
-    
-    if(!getM3u8Sheet.err || getM3u8Sheet.err){
-        m3u8cfg = m3u8(getM3u8Sheet.body);
+    // parse data
+    if(!getM3u8Sheet.err){
+        m3u8cfg = m3u8(getM3u8Sheet.res.body);
         if(m3u8cfg.segments && m3u8cfg.segments.length>0){
             await dlStream(m3u8cfg,fullUrl);
         }
@@ -59,21 +59,16 @@ async function getStream(){
                 );
             }
             quality = await shlp.question(`[Q] stream number`);
-            try{
-                plUri = m3u8cfg.playlists[quality].uri;
-                fullUrl = (!plUri.match(/^http/) ? genBaseUrl(fullUrl) : '') + plUri;
-                console.log(fullUrl);
-                getM3u8Sheet = await getData({url:fullUrl});
-                if(!getM3u8Sheet.err || getM3u8Sheet.err){
-                    m3u8cfg = m3u8(getM3u8Sheet.body);
-                    await dlStream(m3u8cfg,fullUrl);
-                }
-                else{
-                    console.log(JSON.stringify(getM3u8Sheet,null,'\t'));
-                }
+            plUri = m3u8cfg.playlists[quality].uri;
+            fullUrl = (!plUri.match(/^http/) ? genBaseUrl(fullUrl) : '') + plUri;
+            console.log(`[INFO] Requested URL:`, fullUrl);
+            getM3u8Sheet = await getData({url:fullUrl});
+            if(!getM3u8Sheet.err){
+                m3u8cfg = m3u8(getM3u8Sheet.res.body);
+                await dlStream(m3u8cfg,fullUrl);
             }
-            catch(e){
-                console.error('%s\n%s', e.message, e.stack);
+            else{
+                console.log(JSON.stringify(getM3u8Sheet,null,'\t'));
             }
         }
         else{
@@ -83,7 +78,6 @@ async function getStream(){
     else{
         console.log(JSON.stringify(getM3u8Sheet,null,'\t'));
     }
-    
 }
 
 function genBaseUrl(fullUrl){
@@ -151,12 +145,11 @@ async function getData(options){
     if(options && !options.headers){
         options.headers = {};
     }
-    options.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:63.0) Gecko/20100101 Firefox/63.0';
     try{
-        let g = await got(options);
-        return g;
+        let res = await got(options);
+        return { res };
     }
-    catch(res){
-        return { "err": true, res };
+    catch(err){
+        return { "err": true, err };
     }
 }
