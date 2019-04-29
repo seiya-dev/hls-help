@@ -28,7 +28,7 @@ async function getStream(){
 }
 
 // request
-function getData(options){
+async function getData(options){
     try {
         let res = await got(options);
         return {
