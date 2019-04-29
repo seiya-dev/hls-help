@@ -56,6 +56,7 @@ async function getStream(){
                     }
                 }
             }
+            console.log(`[INFO] Streamlist:`);
             for(let v in m3u8cfg.playlists){
                 let plEl = m3u8cfg.playlists[v];
                 let plAt = plEl.attributes ? plEl.attributes : {};
@@ -91,7 +92,7 @@ async function dlStream(m3u8cfg,fullUrl){
     process.chdir(`${__dirname}/downloads/`);
     file = file == '' ? await shlp.question(`[Q] .ts filename`) : file;
     if (!isStream) {
-        isStream = (['Y', 'y'].includes(await shlp.question(`[Q] This is stream? (y/N)`))) ? true : false;
+        isStream = (['Y', 'y'].includes(await shlp.question(`[Q] This is livestream? (y/N)`))) ? true : false;
     }
     if(setCustomBaseUrl){
         setCustomBaseUrl = false;
