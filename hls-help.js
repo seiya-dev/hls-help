@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 
+// build-in
+const fs = require('fs');
+const url = require('url');
+const querystring = require('querystring');
+
 // modules
-const got = require('got');
+const got = require('got').extend({
+    headers: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:65.0) Gecko/20100101 Firefox/65.0' },
+});
+
+// extra
 const m3u8 = require('m3u8-parsed');
 const hlsdl = require('hls-download');
 const shlp = require('sei-helper');
-const querystring = require('querystring');
 
 // req
 let fullUrl          = '';
@@ -30,7 +38,7 @@ async function getStream(){
     fullUrl = await shlp.question(`[Q] m3u8 video url`);
     getM3u8Sheet = await getData({url:fullUrl});
     // parse data
-    if(!getM3u8Sheet.err){
+    if(getM3u8Sheet.ok){
         m3u8cfg = m3u8(getM3u8Sheet.res.body);
         if(m3u8cfg.segments && m3u8cfg.segments.length>0){
             await dlStream(m3u8cfg,fullUrl);
@@ -58,25 +66,19 @@ async function getStream(){
                     '\n `-'+m3u8cfg.playlists[v].uri
                 );
             }
-            quality = await shlp.question(`[Q] stream number`);
+            quality = await shlp.question(`[Q] Stream number`);
             plUri = m3u8cfg.playlists[quality].uri;
             fullUrl = (!plUri.match(/^http/) ? genBaseUrl(fullUrl) : '') + plUri;
             console.log(`[INFO] Requested URL:`, fullUrl);
             getM3u8Sheet = await getData({url:fullUrl});
-            if(!getM3u8Sheet.err){
+            if(getM3u8Sheet.ok){
                 m3u8cfg = m3u8(getM3u8Sheet.res.body);
                 await dlStream(m3u8cfg,fullUrl);
-            }
-            else{
-                console.log(JSON.stringify(getM3u8Sheet,null,'\t'));
             }
         }
         else{
             console.log(m3u8cfg);
         }
-    }
-    else{
-        console.log(JSON.stringify(getM3u8Sheet,null,'\t'));
     }
 }
 
@@ -87,39 +89,42 @@ function genBaseUrl(fullUrl){
 // dl
 async function dlStream(m3u8cfg,fullUrl){
     process.chdir(`${__dirname}/downloads/`);
-    file = file == '' ? await shlp.question(`ts filename`) : file;
+    file = file == '' ? await shlp.question(`[Q] .ts filename`) : file;
     if (!isStream) {
-        isStream = (['Y', 'y'].includes(await shlp.question(`[Q] is stream [y/N]`))) ? true : false;
+        isStream = (['Y', 'y'].includes(await shlp.question(`[Q] This is stream? (y/N)`))) ? true : false;
     }
     if(setCustomBaseUrl){
         setCustomBaseUrl = false;
-        if(['Y', 'y'].includes(await shlp.question(`[Q] do you want enter custom base url [y/N]`))){
-            baseUrl  = querystring.parse('url='+(await shlp.question(`base url`)))['url'];
+        if(['Y', 'y'].includes(await shlp.question(`[Q] Do you want enter custom base url? (y/N)`))){
+            baseUrl  = querystring.parse('url='+(await shlp.question(`[Q] Base url`)))['url'];
         }
         else{
             baseUrl  = genBaseUrl(fullUrl)
         }
     }
     else{
-        baseUrl  = baseUrl;
+        baseUrl = baseUrl;
     }
     let mystream = await hlsdl({ 
         fn: file,
         baseurl: baseUrl, 
         m3u8json: m3u8cfg, 
         pcount: parts, 
-        rcount: 100, 
+        rcount: 10, 
         typeStream: isStream
     });
     console.log(mystream);
     if(isStream){
-        console.log(`[INFO] fetch update...`);
+        console.log(`[INFO] Fetch update...`);
         await updateStream(m3u8cfg,fullUrl);
     }
 }
 async function updateStream(m3u8cfg,fullUrl){
     while (true) {
         getM3u8Sheet = await getData({url:fullUrl});
+        if(!getM3u8Sheet.ok){
+            process.exit(1);
+        }
         m3u8cfgUpd = m3u8(getM3u8Sheet.res.body);
         let lastSegUrl = {
             dld: m3u8cfg.segments[m3u8cfg.segments.length-1].uri,
@@ -145,11 +150,41 @@ async function getData(options){
     if(options && !options.headers){
         options.headers = {};
     }
+    if(options.url.startsWith('file://')){
+        try {
+            let getFileContent = fs.readFileSync(url.fileURLToPath(options.url));
+            return {
+                ok: true,
+                res: {
+                    body: getFileContent,
+                }
+            };
+        }
+        catch(error){
+            console.log(error);
+            return {
+                ok: false,
+                error
+            };
+        }
+    }
     try{
         let res = await got(options);
-        return { res };
+        return {
+            ok: true,
+            res
+        };
     }
-    catch(err){
-        return { "err": true, err };
+    catch(error){
+        if(error.statusCode && error.statusMessage){
+            console.log(`[ERROR] ${error.name} ${error.statusCode}: ${error.statusMessage}`);
+        }
+        else{
+            console.log(`[ERROR] ${error.name}: ${error.code}`);
+        }
+        return {
+            ok: false,
+            error
+        };
     }
 }
