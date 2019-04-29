@@ -92,7 +92,7 @@ async function dlStream(m3u8cfg,fullUrl){
     process.chdir(`${__dirname}/downloads/`);
     file = file == '' ? await shlp.question(`[Q] .ts filename`) : file;
     if (!isStream) {
-        isStream = (['Y', 'y'].includes(await shlp.question(`[Q] This is livestream? (y/N)`))) ? true : false;
+        isStream = (['Y', 'y'].includes(await shlp.question(`[Q] This is livestream? (y/N)`)));
     }
     if(setCustomBaseUrl){
         setCustomBaseUrl = false;
@@ -103,9 +103,7 @@ async function dlStream(m3u8cfg,fullUrl){
             baseUrl  = genBaseUrl(fullUrl)
         }
     }
-    else{
-        baseUrl = baseUrl;
-    }
+
     let mystream = await hlsdl({ 
         fn: file,
         baseurl: baseUrl, 
