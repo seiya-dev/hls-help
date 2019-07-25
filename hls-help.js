@@ -126,8 +126,8 @@ async function dlStream(m3u8cfg,fullUrl){
         // log it
         console.log(`[INFO] ~ Stream download status ~`);
         console.log(`  Last downloaded segment: ${dledSeg}`);
-        console.log(`  First segment index    : ${firstSeg}`);
-        console.log(`  Segment range          : ${lastSeg}`);
+        console.log(`  Segments range         : ${firstSeg} - ${lastSeg}`);
+        console.log(`  Segments count         : ${segCount}`);
         // delete dled segments
         nextSeg  = lastSeg + 1;
         m3u8cfg.segments = m3u8cfg.segments.slice(m3u8cfg.segments.length - segCount);
@@ -163,7 +163,7 @@ async function updateStream(m3u8cfg,fullUrl){
     
     firstSeg = m3u8cfg.mediaSequence;
     lastSeg  = m3u8cfg.mediaSequence + m3u8cfg.segments.length;
-    segCount = lastSeg - nextSeg - 1;
+    segCount = lastSeg - nextSeg + 1;
     
     if(segCount > 0){
         await dlStream(m3u8cfg,fullUrl);
