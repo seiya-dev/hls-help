@@ -126,7 +126,7 @@ async function dlStream(m3u8cfg,fullUrl){
         // log it
         console.log(`[INFO] ~ Stream download status ~`);
         console.log(`  Last downloaded segment: ${dledSeg}`);
-        console.log(`  Segments range         : ${firstSeg} - ${lastSeg}`);
+        console.log(`  Segments range         : ${firstSeg} (${m3u8cfg.mediaSequence}) - ${lastSeg}`);
         console.log(`  Segments count         : ${segCount}`);
         // delete dled segments
         nextSeg  = lastSeg + 1;
