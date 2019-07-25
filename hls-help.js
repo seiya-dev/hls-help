@@ -21,8 +21,10 @@ let baseUrl          = '';
 let quality          = '';
 let file             = '';
 let parts            = 10;
+let appendStream     = false;
 let isStream         = false;
 let setCustomBaseUrl = true;
+let canResume        = true;
 
 // dl data
 let mystreamCfg      = {};
@@ -112,28 +114,48 @@ async function dlStream(m3u8cfg,fullUrl){
             baseUrl = genBaseUrl(fullUrl)
         }
     }
-    // stream
-    if(typeof m3u8cfg.mediaSequence == 'number' && m3u8cfg.mediaSequence == 1 && m3u8cfg.endList){
-        isStream = false;
+    // fix not stream data
+    if(typeof m3u8cfg.mediaSequence != 'number'){
+        m3u8cfg.mediaSequence = 0;
     }
-    else if(typeof m3u8cfg.mediaSequence == 'number' && m3u8cfg.mediaSequence > 0){
-        // define
+    if(m3u8cfg.mediaSequence == 1 && m3u8cfg.endList){
+        m3u8cfg.mediaSequence = 0;
+    }
+    // resume
+    if(canResume && fs.existsSync(`${file}.ts`) && fs.existsSync(`${file}.ts.resume`)){
+        try{
+            let resume = require(`${file}.ts.resume`);
+            if(m3u8cfg.mediaSequence > 0){
+                nextSeg = resume.first + resume.completed;
+            }
+            segCount = resume.total - resume.completed;
+            appendStream = true;
+        }
+        catch(e){}
+    }
+    // segments count
+    segCount = segCount > 0 ? segCount : m3u8cfg.segments.length;
+    // stream
+    if(m3u8cfg.mediaSequence > 0){
         isStream = true;
+    }
+    if(m3u8cfg.mediaSequence > 0){
         // stream status
         dledSeg  = nextSeg > 0 ? nextSeg - 1 : 0;
         firstSeg = m3u8cfg.mediaSequence;
         startSeg = nextSeg > 0 ? nextSeg : firstSeg;
         lastSeg  = firstSeg + m3u8cfg.segments.length;
-        segCount = segCount > 0 ? segCount : m3u8cfg.segments.length;
-        // log it
+        // log stream data
         console.log(`[INFO] ~ Stream download status ~`);
         console.log(`  Last downloaded segment: ${dledSeg}`);
         console.log(`  Segments range         : ${startSeg} (${firstSeg}) - ${lastSeg}`);
         console.log(`  Segments count         : ${segCount}`);
-        // delete dled segments
+        // update
+        m3u8cfg.mediaSequence = startSeg;
         nextSeg  = lastSeg + 1;
-        m3u8cfg.segments = m3u8cfg.segments.slice(m3u8cfg.segments.length - segCount);
     }
+    // delete dled segments
+    m3u8cfg.segments = m3u8cfg.segments.slice(m3u8cfg.segments.length - segCount);
     // dl
     mystreamCfg = {
         fn: file,
@@ -141,18 +163,24 @@ async function dlStream(m3u8cfg,fullUrl){
         m3u8json: m3u8cfg,
         pcount: parts,
         rcount: 10, 
-        typeStream: isStream
+        typeStream: appendStream,
     };
-    await delay(5000);
     mystream = await hlsdl(mystreamCfg);
     if(mystream){
+        if(canResume && fs.existsSync(`${file}.ts.resume`)){
+            fs.unlinkSync(`${file}.ts.resume`);
+            canResume = false;
+        }
         console.log(mystream);
     }
-    if(mystream && !mystream.ok){
+    else if(mystream && !mystream.ok){
+        fs.writeFileSync(`${file}.ts.resume`, mystream.parts);
         console.log(mystream);
+        process.exit(1);
     }
     // update stream
     if(isStream && !m3u8cfg.endList){
+        appendStream = true;
         await updateStream(m3u8cfg,fullUrl);
     }
 }
@@ -167,7 +195,7 @@ async function updateStream(m3u8cfg,fullUrl){
     m3u8cfg = m3u8(getM3u8Sheet.res.body);
     
     firstSeg = m3u8cfg.mediaSequence;
-    lastSeg  = m3u8cfg.mediaSequence + m3u8cfg.segments.length;
+    lastSeg  = firstSeg + m3u8cfg.segments.length;
     segCount = lastSeg - nextSeg + 1;
     
     if(segCount > 0){
