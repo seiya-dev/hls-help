@@ -146,6 +146,9 @@ async function dlStream(m3u8cfg,fullUrl){
     if(mystream){
         console.log(mystream);
     }
+    if(mystream && !mystream.ok){
+        console.log(mystream);
+    }
     // update stream
     if(isStream && !m3u8cfg.endList){
         await updateStream(m3u8cfg,fullUrl);
