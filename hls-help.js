@@ -91,52 +91,57 @@ function genBaseUrl(fullUrl){
 async function dlStream(m3u8cfg,fullUrl){
     process.chdir(`${__dirname}/downloads/`);
     file = file == '' ? await shlp.question(`[Q] .ts filename`) : file;
-    if (!isStream) {
-        isStream = (['Y', 'y'].includes(await shlp.question(`[Q] This is livestream? (y/N)`)));
-    }
     if(setCustomBaseUrl){
         setCustomBaseUrl = false;
         if(['Y', 'y'].includes(await shlp.question(`[Q] Do you want enter custom base url? (y/N)`))){
-            baseUrl  = querystring.parse('url='+(await shlp.question(`[Q] Base url`)))['url'];
+            baseUrl = querystring.parse('url='+(await shlp.question(`[Q] Base url`)))['url'];
         }
         else{
-            baseUrl  = genBaseUrl(fullUrl)
+            baseUrl = genBaseUrl(fullUrl)
         }
     }
-
-    let mystream = await hlsdl({ 
+    
+    let isStream = false;
+    if(typeof m3u8cfg.mediaSequence == 'number' && m3u8cfg.mediaSequence > 0){
+        isStream = true;
+    }
+    
+    let mystream = await hlsdl({
         fn: file,
-        baseurl: baseUrl, 
-        m3u8json: m3u8cfg, 
-        pcount: parts, 
+        baseurl: baseUrl,
+        m3u8json: m3u8cfg,
+        pcount: parts,
         rcount: 10, 
         typeStream: isStream
     });
     console.log(mystream);
     if(isStream){
-        console.log(`[INFO] Fetch update...`);
-        await updateStream(m3u8cfg,fullUrl);
+        m3u8cfg.mediaSequence = m3u8cfg.mediaSequence + m3u8cfg.segments.length;
+        await updateStream(m3u8cfg,fullUrl,m3u8cfg.mediaSequence);
     }
 }
-async function updateStream(m3u8cfg,fullUrl){
+async function updateStream(m3u8cfg,fullUrl,firstSegmentIndex){
+    let nextMediaSequence = firstSegmentIndex;
     while (true) {
+        if(m3u8cfg.endList){
+            break;
+        }
+        console.log(`[INFO] Fetch update...`);
         getM3u8Sheet = await getData({url:fullUrl});
         if(!getM3u8Sheet.ok){
+            console.log(`[ERROR] Fail to get new url...`);
             process.exit(1);
         }
-        m3u8cfgUpd = m3u8(getM3u8Sheet.res.body);
-        let lastSegUrl = {
-            dld: m3u8cfg.segments[m3u8cfg.segments.length-1].uri,
-            upd: m3u8cfgUpd.segments[m3u8cfgUpd.segments.length-1].uri
-        };
-        if (lastSegUrl.dld == lastSegUrl.upd) {
+        m3u8cfg = m3u8(getM3u8Sheet.res.body);
+        let partsCount = m3u8cfg.mediaSequence + m3u8cfg.segments.length - nextMediaSequence - 1;
+        if(partsCount < 1){
             await delay(2000);
             continue;
         }
-        let oldUrls = {};
-        m3u8cfg.segments.forEach(s => oldUrls[s.uri] = 1);
-        m3u8cfg = m3u8cfgUpd;
-        m3u8cfg.segments = m3u8cfg.segments.filter(s => !(s.uri in oldUrls));
+        else{
+            nextMediaSequence = m3u8cfg.mediaSequence + m3u8cfg.segments.length;
+            m3u8cfg.segments = m3u8cfg.segments.slice(m3u8cfg.segments.length - partsCount);
+        }
         await dlStream(m3u8cfg,fullUrl);
     }
 }
