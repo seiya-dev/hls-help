@@ -122,19 +122,20 @@ async function dlStream(m3u8cfg,fullUrl){
         m3u8cfg.mediaSequence = 0;
     }
     // resume
+    let streamOffset = 0;
     if(canResume && fs.existsSync(`${file}.ts`) && fs.existsSync(`${file}.ts.resume`)){
         try{
-            let resume = require(`${file}.ts.resume`);
+            let resume = JSON.parse(fs.readFileSync(`${file}.ts.resume`, 'utf-8'));
             if(m3u8cfg.mediaSequence > 0){
-                nextSeg = resume.first + resume.completed;
+                nextSeg = resume.completed + 1;
             }
-            segCount = resume.total - resume.completed;
+            else{
+                streamOffset = resume.completed;
+            }
             appendStream = true;
         }
         catch(e){}
     }
-    // segments count
-    segCount = segCount > 0 ? segCount : m3u8cfg.segments.length;
     // stream
     if(m3u8cfg.mediaSequence > 0){
         isStream = true;
@@ -145,6 +146,7 @@ async function dlStream(m3u8cfg,fullUrl){
         firstSeg = m3u8cfg.mediaSequence;
         startSeg = nextSeg > 0 ? nextSeg : firstSeg;
         lastSeg  = firstSeg + m3u8cfg.segments.length;
+        segCount = dledSeg < firstSeg ? m3u8cfg.segments.length : lastSeg - dledSeg;
         // log stream data
         console.log(`[INFO] ~ Stream download status ~`);
         console.log(`  Last downloaded segment: ${dledSeg}`);
@@ -152,17 +154,17 @@ async function dlStream(m3u8cfg,fullUrl){
         console.log(`  Segments count         : ${segCount}`);
         // update
         m3u8cfg.mediaSequence = startSeg;
-        nextSeg  = lastSeg + 1;
+        nextSeg               = lastSeg + 1;
+        m3u8cfg.segments = m3u8cfg.segments.slice(m3u8cfg.segments.length - segCount);
     }
-    // delete dled segments
-    m3u8cfg.segments = m3u8cfg.segments.slice(m3u8cfg.segments.length - segCount);
     // dl
     mystreamCfg = {
         fn: file,
         baseurl: baseUrl,
         m3u8json: m3u8cfg,
         pcount: parts,
-        rcount: 10, 
+        rcount: 10,
+        partsOffset: streamOffset,
         typeStream: appendStream,
     };
     mystream = await hlsdl(mystreamCfg);
@@ -174,7 +176,9 @@ async function dlStream(m3u8cfg,fullUrl){
         console.log(mystream);
     }
     else if(mystream && !mystream.ok){
-        fs.writeFileSync(`${file}.ts.resume`, mystream.parts);
+        let newResume = mystream.parts;
+        newResume.completed += dledSeg;
+        fs.writeFileSync(`${file}.ts.resume`, JSON.stringify(newResume));
         console.log(mystream);
         process.exit(1);
     }
