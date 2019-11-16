@@ -3,6 +3,7 @@
 // build-in
 const fs = require('fs');
 const url = require('url');
+const path = require('path');
 const querystring = require('querystring');
 
 // modules
@@ -11,9 +12,11 @@ const got = require('got').extend({
 });
 
 // extra
+const yargs = require('yargs');
 const m3u8 = require('m3u8-parsed');
 const hlsdl = require('hls-download');
 const shlp = require('sei-helper');
+const cfg = require(path.join(__dirname,'/config.json'));
 
 // req
 let fullUrl          = '';
@@ -29,6 +32,7 @@ let canResume        = true;
 // dl data
 let mystreamCfg      = {};
 let mystream         = false;
+let dlDir            = cfg.workDir;
 
 // stream
 let dledSeg  = 0;
@@ -42,13 +46,35 @@ let nextSeg  = 0;
 let m3u8cfg;
 let getM3u8Sheet;
 
+// args
+let argv = yargs
+    // base
+    .wrap(Math.min(100))
+    .usage('Usage: $0 [options]')
+    .help(false).version(false)
+    // main
+    .describe('url','set dl url')
+    .describe('file','set output file')
+    .describe('setbase','use own base url')
+    .describe('baseurl','set own base url')
+    // help
+    .describe('help','Show this help')
+    .boolean('help')
+    .alias('help','h')
+    .argv;
+
 // start
-getStream();
+// main
+(async function(){
+    await getStream();
+}());
 
 // program
 async function getStream(){
+    // set dl dir
+    process.chdir(dlDir);
     // set url
-    fullUrl = await shlp.question(`[Q] m3u8 video url`);
+    fullUrl = argv.url || await shlp.question(`[Q] m3u8 video url`);
     getM3u8Sheet = await getData({url:fullUrl});
     // parse data
     if(getM3u8Sheet.ok){
@@ -103,12 +129,13 @@ function genBaseUrl(fullUrl){
 // dl
 async function dlStream(m3u8cfg,fullUrl){
     // prepare
-    process.chdir(`${__dirname}/downloads/`);
-    file = file == '' ? await shlp.question(`[Q] .ts filename`) : file;
+    file = file == '' ? ( argv.file || await shlp.question(`[Q] .ts filename`) ) : file;
     if(setCustomBaseUrl){
         setCustomBaseUrl = false;
-        if(['Y', 'y'].includes(await shlp.question(`[Q] Do you want enter custom base url? (y/N)`))){
-            baseUrl = querystring.parse('url='+(await shlp.question(`[Q] Base url`)))['url'];
+        let setBase = argv.setbase || await shlp.question(`[Q] Do you want enter custom base url? (y/N)`);
+        if(['Y', 'y'].includes(setBase)){
+            let newBase = argv.baseurl || await shlp.question(`[Q] Base url`);
+            baseUrl = new URLSearchParams(`url=${newBase.replace(/&(amp;)?/g,'&amp;')}`).get('url');
         }
         else{
             baseUrl = genBaseUrl(fullUrl)

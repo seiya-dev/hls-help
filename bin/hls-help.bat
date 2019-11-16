@@ -1,7 +1,8 @@
 @echo off
+cd ..
 
 :start
-node ttml-help.js
+node hls-help.js
 echo.
 pause
 echo.

@@ -11,6 +11,10 @@ const got = require('got').extend({
 // extra
 const shlp = require('sei-helper');
 const { ttml2srt } = require('ttml2srt');
+const cfg = require(path.join(__dirname,'/config.json'));
+
+// cfg
+let dlDir            = cfg.workDir;
 
 // start
 getStream();
@@ -22,7 +26,7 @@ async function getStream(){
     let xmlData = await getData(xmlUrl);
     if(xmlData.ok){
         let xmlBody = xmlData.res.body;
-        process.chdir(`${__dirname}/downloads/`);
+        process.chdir(dlDir);
         fs.writeFileSync(file+'.srt',ttml2srt(xmlBody));
     }
 }

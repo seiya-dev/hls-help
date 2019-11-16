@@ -5,10 +5,12 @@
     "main": "hls-help.js",
     "dependencies": {
         "got": "^9.6.0",
-        "hls-download": "^2.1.3",
+        "hls-download": "^2.2.1",
         "m3u8-parsed": "^1.2.0",
-        "sei-helper": "^3.2.0",
-        "ttml2srt": "^1.1.0"
+        "proxy-agent": "^3.1.1",
+        "sei-helper": "^3.3.0",
+        "ttml2srt": "^1.1.0",
+        "yargs": "^14.2.0"
     },
     "devDependencies": {},
     "scripts": {
