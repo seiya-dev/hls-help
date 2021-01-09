@@ -186,7 +186,7 @@ async function dlStream(m3u8cfg,fullUrl){
     }
     // dl
     mystreamCfg = {
-        fn: file,
+        fn: file + '.ts',
         baseurl: baseUrl,
         m3u8json: m3u8cfg,
         pcount: parts,
@@ -194,7 +194,8 @@ async function dlStream(m3u8cfg,fullUrl){
         partsOffset: streamOffset,
         typeStream: appendStream,
     };
-    mystream = await hlsdl(mystreamCfg);
+    console.log(m3u8cfg);
+    mystream = await new hlsdl(mystreamCfg).download();
     if(mystream){
         if(canResume && fs.existsSync(`${file}.ts.resume`)){
             fs.unlinkSync(`${file}.ts.resume`);
